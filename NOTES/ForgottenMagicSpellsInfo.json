@@ -1,0 +1,168 @@
+{
+  "spells": [
+    {
+      "spell_index": 0,
+      "granting_book_name": "Forgotten Magic: Fire Blast"
+    },
+    {
+      "spell_index": 1,
+      "granting_book_name": "Forgotten Magic: Conflagrate"
+    },
+    {
+      "spell_index": 2,
+      "granting_book_name": "Forgotten Magic: Meteor Shower"
+    },
+    {
+      "spell_index": 3,
+      "granting_book_name": "Forgotten Magic: Doppelganger"
+    },
+    {
+      "spell_index": 4,
+      "granting_book_name": "Forgotten Magic: Blight Curse"
+    },
+    {
+      "spell_index": 5,
+      "granting_book_name": "Forgotten Magic: Necrosis"
+    },
+    {
+      "spell_index": 6,
+      "granting_book_name": "Forgotten Magic: Void Bolt"
+    },
+    {
+      "spell_index": 7,
+      "granting_book_name": "Forgotten Magic: Deathguard"
+    },
+    {
+      "spell_index": 8,
+      "granting_book_name": "Forgotten Magic: Ice Lance"
+    },
+    {
+      "spell_index": 9,
+      "granting_book_name": "Forgotten Magic: Frost Bomb"
+    },
+    {
+      "spell_index": 10,
+      "granting_book_name": "Forgotten Magic: Ancient Lich"
+    },
+    {
+      "spell_index": 11,
+      "granting_book_name": "Forgotten Magic: Frost Armor"
+    },
+    {
+      "spell_index": 12,
+      "granting_book_name": "Forgotten Magic: Healing Touch"
+    },
+    {
+      "spell_index": 13,
+      "granting_book_name": "Forgotten Magic: Seed of Life"
+    },
+    {
+      "spell_index": 14,
+      "granting_book_name": "Forgotten Magic: Earthbound Weapon"
+    },
+    {
+      "spell_index": 15,
+      "granting_book_name": "Forgotten Magic: Wild Mushroom"
+    },
+    {
+      "spell_index": 16,
+      "granting_book_name": "Forgotten Magic: Divine Light"
+    },
+    {
+      "spell_index": 17,
+      "granting_book_name": "Forgotten Magic: Holy Bolt"
+    },
+    {
+      "spell_index": 18,
+      "granting_book_name": "Forgotten Magic: Divine Armor"
+    },
+    {
+      "spell_index": 19,
+      "granting_book_name": "Forgotten Magic: Hammer of Justice"
+    },
+    {
+      "spell_index": 20,
+      "granting_book_name": "Forgotten Magic: Stormstrike"
+    },
+    {
+      "spell_index": 21,
+      "granting_book_name": "Forgotten Magic: Lightning Strike"
+    },
+    {
+      "spell_index": 22,
+      "granting_book_name": "Forgotten Magic: Storm Armor"
+    },
+    {
+      "spell_index": 23,
+      "granting_book_name": "Forgotten Magic: Skyfall"
+    },
+    {
+      "spell_index": 24,
+      "granting_book_name": "Forgotten Magic: Arcane Weapon"
+    },
+    {
+      "spell_index": 25,
+      "granting_book_name": "Forgotten Magic: Cursed Rune"
+    },
+    {
+      "spell_index": 26,
+      "granting_book_name": "Forgotten Magic: Discord"
+    },
+    {
+      "spell_index": 27,
+      "granting_book_name": "Forgotten Magic: Phantom Shroud"
+    },
+    {
+      "spell_index": 28,
+      "granting_book_name": "Forgotten Magic: Veil of Nature"
+    },
+    {
+      "spell_index": 29,
+      "granting_book_name": "Forgotten Magic: Wolf Pack"
+    },
+    {
+      "spell_index": 30,
+      "granting_book_name": "Forgotten Magic: Salamander Touch"
+    },
+    {
+      "spell_index": 31,
+      "granting_book_name": "Forgotten Magic: Deathly Pall"
+    },
+    {
+      "spell_index": 32,
+      "granting_book_name": "Forgotten Magic: Nether Rift"
+    },
+    {
+      "spell_index": 33,
+      "granting_book_name": "Forgotten Magic: Phoenix Strike"
+    },
+    {
+      "spell_index": 34,
+      "granting_book_name": "Forgotten Magic: Winter Woe"
+    },
+    {
+      "spell_index": 35,
+      "granting_book_name": "Forgotten Magic: Glacial Fortress"
+    },
+    {
+      "spell_index": 36,
+      "granting_book_name": "Forgotten Magic: Spectral Missiles"
+    },
+    {
+      "spell_index": 37,
+      "granting_book_name": "Forgotten Magic: Phantom Armor"
+    },
+    {
+      "spell_index": 38,
+      "granting_book_name": "Forgotten Magic: Electric Charge"
+    },
+    {
+      "spell_index": 39,
+      "granting_book_name": "Forgotten Magic: Stormgate"
+    },
+    {
+      "spell_index": 40,
+      "granting_book_name": "Forgotten Magic: Blessed Weapon"
+    }
+  ]
+}
