@@ -1,10 +1,5 @@
-# Papyrus & SKSE
+# Forgotten Magic: Update Spell Names with Progress
 
-[**DRAFT**] _My current template for Papyrus and SKSE hacking_
+![Screenshot of Wheeler](screenshots/Wheeler.png)
 
-> Uses [`xmake`][] as build system.  
-> Also requires [`pyro`][] (should be installed in `PATH`).  
-
-
-[`xmake`]: https://xmake.io
-[`pyro`]: https://wiki.fireundubh.com/pyro
+![Screenshot of Inventory](screenshots/Inventory.png)
