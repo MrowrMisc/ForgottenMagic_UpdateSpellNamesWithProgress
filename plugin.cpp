@@ -104,15 +104,6 @@ void LoadForgottenMagicSpellsData() {
     Log("Found {} out of {} Forgotten Magic spell books", found, spellInfosByIndex.size());
 }
 
-void ResetAllSpellsToTheirOriginalNames() {
-    for (const auto& [spell, spellInfo] : spellInfosBySpellItem) {
-        if (spell && spellInfo.spell) {
-            Log("Resetting spell name to original: {}", spellInfo.originalSpellName);
-            spell->SetFullName(spellInfo.originalSpellName.c_str());
-        }
-    }
-}
-
 class MagicEffectApplyEventSink : public RE::BSTEventSink<RE::TESMagicEffectApplyEvent> {
 private:
     // Mutex for protecting access to the spell queue and last use times
@@ -151,6 +142,7 @@ private:
     // Used to prevent multiple batches of spells from being processed simultaneously
     bool is_processing{false};
 
+public:
     /**
      * Processes a batch of spells after they've been used and sufficient time has passed
      *
@@ -374,7 +366,6 @@ private:
         cv.notify_one();
     }
 
-public:
     /**
      * Constructor - starts the background thread
      */
@@ -444,14 +435,44 @@ public:
     }
 };
 
+void ResetAllSpellsToTheirOriginalNames() {
+    for (const auto& [spell, spellInfo] : spellInfosBySpellItem) {
+        if (spell && spellInfo.spell) {
+            Log("Resetting spell name to original: {}", spellInfo.originalSpellName);
+            spell->SetFullName(spellInfo.originalSpellName.c_str());
+        }
+    }
+}
+
+void UpdateXPofAllSpells() {
+    Log("Updating XP for all of the player's Forgotten Magic spells...");
+    std::vector<RE::SpellItem*> allSpells;
+    const auto*                 player = RE::PlayerCharacter::GetSingleton();
+    for (const auto& [spell, spellInfo] : spellInfosBySpellItem) {
+        if (player->HasSpell(spell)) {
+            if (spell && spellInfo.spell) {
+                allSpells.push_back(spell);
+            }
+        }
+    }
+    MagicEffectApplyEventSink::instance()->UpdateSpellsXP(allSpells);
+    Log("Updated XP for all of the player's Forgotten Magic spells");
+}
+
 SKSEPlugin_Entrypoint { ParseIni(); }
 
 SKSEPlugin_OnDataLoaded {
+    const auto now = std::chrono::steady_clock::now();
     if (LookupForgottenMagicPluginAndMCM()) {
         if (forgottenMagicFile) LoadForgottenMagicSpellsData();
         RE::ScriptEventSourceHolder::GetSingleton()->AddEventSink(MagicEffectApplyEventSink::instance());
     }
+    const auto durationInMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - now).count();
+    Log("Data loaded in {}ms", durationInMs);
 }
 
-SKSEPlugin_OnPostLoadGame { ResetAllSpellsToTheirOriginalNames(); }
+SKSEPlugin_OnPostLoadGame {
+    ResetAllSpellsToTheirOriginalNames();
+    UpdateXPofAllSpells();
+}
 SKSEPlugin_OnNewGame { ResetAllSpellsToTheirOriginalNames(); }
