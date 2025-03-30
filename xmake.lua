@@ -18,17 +18,11 @@ includes("xmake/*.lua")
 
 add_requires(get_config("commonlib"))
 add_requires("SkyrimScripting.Plugin", { configs = { commonlib = get_config("commonlib") } })
-
-target("Build Papyrus Scripts")
-    set_kind("phony")
-    compile_papyrus_scripts()
     
 skse_plugin({
-    name = "Hello Plugin",
+    name = "Haz Forgotten Wheeler XP",
     version = "0.0.1",
-    author = "Your Name",
-    email = "your.name@example.com",
-    mod_files = {"Scripts"},
-    deps = {"Build Papyrus Scripts"},
-    packages = {"SkyrimScripting.Plugin"},
+    author = "Mrowr Purr",
+    email = "mrowr.purr@gmail.com",
+    packages = {"SkyrimScripting.Plugin"}
 })
