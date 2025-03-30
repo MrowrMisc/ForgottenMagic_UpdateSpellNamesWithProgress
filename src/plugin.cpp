@@ -1,216 +1,172 @@
 #include <SkyrimScripting/Plugin.h>
 
-#include <algorithm>
-#include <cstdint>
-#include <string>
-#include <unordered_map>
+// Do not import SimpleIni until after CommonLib/SkyrimScripting
+#include <SimpleIni.h>
+#include <collections.h>
+
+#include <atomic>
 
 using namespace std::literals;
-using SpellIndex = std::uint32_t;
 
-constexpr auto     FORGOTTEN_MAGIC_ESP = "ForgottenMagic_Redone.esp"sv;
-const RE::TESFile* forgottenMagicFile  = nullptr;
+constexpr auto INI_FILENAME        = "Data/SKSE/Plugins/HazForgottenWheelerXP.ini"sv;
+constexpr auto INI_SECTION         = "General"sv;
+constexpr auto INI_KEY             = "wheeler_toggle_keycode"sv;
+constexpr auto FORGOTTEN_MAGIC_ESP = "ForgottenMagic_Redone.esp"sv;
+constexpr auto MAGIC_EFFECT_SCRIPT = "FMR_MagicScript"sv;
+constexpr auto MCM_EDITOR_ID       = "vMCM"sv;
+constexpr auto MCM_SCRIPT          = "vMCMscript"sv;
+constexpr auto WHEELER_TOGGLE_TIME = 500ms;
 
-std::unordered_map<std::string, std::uint32_t> spellNameToSpellIndex = {
-    {"fireblast",         0 },
-    {"conflagrate",       1 },
-    {"meteor shower",     2 },
-    {"doppelganger",      3 },
-    {"blight curse",      4 },
-    {"necrosis",          5 },
-    {"void bolt",         6 },
-    {"deathguard",        7 },
-    {"ice lance",         8 },
-    {"frost bomb",        9 },
-    {"ancient lich",      10},
-    {"frost armor",       11},
-    {"healing touch",     12},
-    {"seed of life",      13},
-    {"earthbound weapon", 14},
-    {"wild mushroom",     15},
-    {"divine light",      16},
-    {"holy bolt",         17},
-    {"divine armor",      18},
-    {"hammer of justice", 19},
-    {"stormstrike",       20},
-    {"lightning strike",  21},
-    {"storm armor",       22},
-    {"skyfall",           23},
-    {"arcane weapon",     24},
-    {"cursed rune",       25},
-    {"discord",           26},
-    {"phantom shroud",    27},
-    {"veil of nature",    28},
-    {"wolf pack",         29},
-    {"salamander touch",  30},
-    {"deathly pall",      31},
-    {"nether rift",       32},
-    {"phoenix strike",    33},
-    {"winter woe",        34},
-    {"glacial fortress",  35},
-    {"spectral missiles", 36},
-    {"phantom armor",     37},
-    {"electric charge",   38},
-    {"stormgate",         39},
-    {"blessed weapon",    40}
-};
+std::atomic<bool>                            _spellsLoaded         = false;
+int                                          wheelerToggleKey      = 0x3A;  // Default: CAPS LOCK
+const RE::TESFile*                           forgottenMagicFile    = nullptr;
+std::chrono::steady_clock::time_point        lastWheelerToggleTime = std::chrono::steady_clock::now();
+collections_map<RE::SpellItem*, std::string> spellNames;
 
-// Helper function to convert a string to lowercase
-static std::string toLower(const std::string& str) {
-    std::string lowerStr = str;
-    std::transform(lowerStr.begin(), lowerStr.end(), lowerStr.begin(), ::tolower);
-    return lowerStr;
+void UpdateAllPlayerForgottenMagicSpellNamesWithXP() {
+    Log("Updating all player Forgotten Magic spell names with XP...");
+
+    auto* player = RE::PlayerCharacter::GetSingleton();
+    for (auto& spell : player->addedSpells) {
+        if (forgottenMagicFile->IsFormInMod(spell->GetFormID())) {
+            // Get the original name of the spell
+            std::string spellName;
+            if (spellNames.find(spell) != spellNames.end()) {
+                spellName = spellNames[spell];
+            } else {
+                spellName         = spell->fullName;
+                spellNames[spell] = spell->fullName;
+            }
+
+            // ...
+            // spell->effects[0]->baseEffect.has
+            // const auto vm = RE::BSScript::Internal::VirtualMachine::GetSingleton();
+            // vm.script
+        }
+    }
 }
 
-// Case-insensitive lookup function
-std::optional<std::uint32_t> getSpellIndexFromSpellName(const std::string& spellName) {
-    std::string lowerSpellName = toLower(spellName);
-    auto        it             = spellNameToSpellIndex.find(lowerSpellName);
-    if (it != spellNameToSpellIndex.end()) return it->second;
-    return std::nullopt;
-}
+void FindAllForgottenMagicSpells() {
+    Log("Searching for Forgotten Magic spells...");
 
-std::unordered_map<std::uint32_t, RE::SpellItem*> spellIndexToSpellForm;
-std::unordered_map<std::uint32_t, std::string>    spellIndexToOriginalSpellName;
+    auto* vm = RE::BSScript::Internal::VirtualMachine::GetSingleton();
+    Log("VM: {}", vm != nullptr ? "true" : "false");
 
-class EventSink : public RE::BSTEventSink<RE::TESMagicEffectApplyEvent> {
-public:
-    RE::BSEventNotifyControl ProcessEvent(
-        const RE::TESMagicEffectApplyEvent*               event,
-        RE::BSTEventSource<RE::TESMagicEffectApplyEvent>* eventSource
-    ) override {
-        if (!event->caster) return RE::BSEventNotifyControl::kContinue;
-        if (!event->caster->IsPlayerRef()) return RE::BSEventNotifyControl::kContinue;
-        if (!event->magicEffect) return RE::BSEventNotifyControl::kContinue;
+    auto* objectHandlePolicy = vm->GetObjectHandlePolicy();
+    Log("ObjectHandlePolicy: {}", objectHandlePolicy != nullptr ? "true" : "false");
 
-        auto* magicEffectForm = RE::TESForm::LookupByID(event->magicEffect);
-        if (!magicEffectForm) return RE::BSEventNotifyControl::kContinue;
+    // Go through every spell in the game, looking for the ones from Forgotten Magic...
+    auto spells = RE::TESDataHandler::GetSingleton()->GetFormArray<RE::SpellItem>();
+    for (const auto& spell : spells) {
+        if (!forgottenMagicFile->IsFormInMod(spell->GetFormID())) continue;
+        Log("Found a Forgotten Magic spell: {}", spell->GetName());
 
-        if (!forgottenMagicFile) return RE::BSEventNotifyControl::kContinue;
-        if (!forgottenMagicFile->IsFormInMod(event->magicEffect))
-            return RE::BSEventNotifyControl::kContinue;
-
-        auto* vm = RE::BSScript::Internal::VirtualMachine::GetSingleton();
-        if (!vm) return RE::BSEventNotifyControl::kContinue;
-
-        auto* handlePolicy = vm->GetObjectHandlePolicy();
-        if (!handlePolicy) return RE::BSEventNotifyControl::kContinue;
-
-        auto spellIndexValue = getSpellIndexFromSpellName(magicEffectForm->GetName());
-        if (!spellIndexValue) return RE::BSEventNotifyControl::kContinue;
-        auto spellIndex = *spellIndexValue;
-
-        // Let's right here, right now, try to get the MCM.
-        auto* mcmForm = RE::TESQuest::LookupByEditorID("vMCM");
-        if (!mcmForm) return RE::BSEventNotifyControl::kContinue;
-
-        auto mcmFormHandle = handlePolicy->GetHandleForObject(mcmForm->GetFormType(), mcmForm);
-        if (!mcmFormHandle) return RE::BSEventNotifyControl::kContinue;
-
-        auto mcmFormScripts = vm->attachedScripts.find(mcmFormHandle);
-        if (mcmFormScripts == vm->attachedScripts.end()) return RE::BSEventNotifyControl::kContinue;
-        if (mcmFormScripts != vm->attachedScripts.end()) {
-            for (auto& script : mcmFormScripts->second) {
-                if (script->type->name == "vMCMscript") {
-                    // We need these properties
-                    auto* xpBySpellIdProperty = script->GetProperty("fSPXP");
-                    if (!xpBySpellIdProperty) {
-                        Log("fSPXP property not found!");
-                        return RE::BSEventNotifyControl::kContinue;
-                    }
-                    auto* xpReqProperty = script->GetProperty("fXPreq");
-                    if (!xpReqProperty) {
-                        Log("fXPreq property not found!");
-                        return RE::BSEventNotifyControl::kContinue;
-                    }
-
-                    // And each property should be an array
-                    if (!xpBySpellIdProperty->IsArray()) {
-                        Log("fSPXP property is not an array!");
-                        return RE::BSEventNotifyControl::kContinue;
-                    }
-                    if (!xpReqProperty->IsArray()) {
-                        Log("fXPreq property is not an array!");
-                        return RE::BSEventNotifyControl::kContinue;
-                    }
-
-                    // Get the arrays
-                    auto xpBySpellIdArray     = xpBySpellIdProperty->GetArray();
-                    auto xpReqsBySpellIdArray = xpReqProperty->GetArray();
-
-                    // Make sure the spell index is valid in both arrays
-                    if (xpBySpellIdArray->size() <= spellIndex) {
-                        Log("XP array size is smaller than spell index!");
-                        return RE::BSEventNotifyControl::kContinue;
-                    }
-                    if (xpReqsBySpellIdArray->size() <= spellIndex) {
-                        Log("XP req array size is smaller than spell index!");
-                        return RE::BSEventNotifyControl::kContinue;
-                    }
-
-                    // Get the variable at the right spell index
-                    auto currentXpVariable = (*xpBySpellIdArray)[spellIndex];
-                    auto xpReqVariable     = (*xpReqsBySpellIdArray)[spellIndex];
-
-                    // Both need to be floats
-                    if (!currentXpVariable.IsFloat()) {
-                        Log("XP variable is not a float!");
-                        return RE::BSEventNotifyControl::kContinue;
-                    }
-                    if (!xpReqVariable.IsFloat()) {
-                        Log("XP req variable is not a float!");
-                        return RE::BSEventNotifyControl::kContinue;
-                    }
-
-                    // Get the float values
-                    auto currentXp = currentXpVariable.GetFloat();
-                    auto xpReq     = xpReqVariable.GetFloat();
-                    if (currentXp < 0) {
-                        Log("XP is negative!");
-                        return RE::BSEventNotifyControl::kContinue;
-                    }
-                    if (xpReq <= 0) {
-                        Log("XP req is negative or zero!");
-                        return RE::BSEventNotifyControl::kContinue;
-                    }
-
-                    // Sweet! Now we can calculate the progress:
-                    auto progress = (currentXp / xpReq) * 100;
-
-                    // Get it as a percentage, and clamp it to 0-100
-                    auto progressInt = static_cast<std::int32_t>(progress);
-                    if (progressInt < 0) progressInt = 0;
-                    if (progressInt > 100) progressInt = 100;
-
-                    // Get the form!
-                    auto* spellForm = spellIndexToSpellForm[spellIndex];
-                    if (!spellForm) return RE::BSEventNotifyControl::kContinue;
-
-                    // Get the original name of this form:
-                    auto originalName = spellIndexToOriginalSpellName[spellIndex];
-                    if (originalName.empty()) return RE::BSEventNotifyControl::kContinue;
-
-                    // If it's zero, then set the name back to the original name
-                    if (progressInt == 0) {
-                        spellForm->SetFullName(originalName.c_str());
-                    } else {
-                        // Otherwise, set the name to the original name + progress
-                        // Make a new name which is the original name + progress, like
-                        // "<original name> (<progress>%)"
-                        std::string newName =
-                            originalName + " (" + std::to_string(progressInt) + "%)";
-
-                        spellForm->SetFullName(newName.c_str());
+        for (const auto& effect : spell->effects) {
+            if (auto* baseEffect = effect->baseEffect) {
+                if (baseEffect->HasVMAD()) {
+                    Log("Found a VMAD effect: {}", baseEffect->GetName());
+                    auto       effectHandle            = objectHandlePolicy->GetHandleForObject(baseEffect->GetFormType(), baseEffect);
+                    const auto scriptsAttachedToEffect = vm->attachedScripts.find(effectHandle);
+                    if (scriptsAttachedToEffect != vm->attachedScripts.end()) {
+                        for (const auto& script : scriptsAttachedToEffect->second) {
+                            if (script->type->name == MAGIC_EFFECT_SCRIPT) {
+                                Log("Found a script on a Forgotten Magic spell: {}", spell->GetName());
+                                const auto* sIndexProperty = script->GetProperty("sIndex");
+                                if (sIndexProperty) {
+                                    Log("sIndex property found!");
+                                    const auto sIndex = sIndexProperty->GetUInt();
+                                    Log("sIndex: {}", sIndex);
+                                }
+                            }
+                        }
                     }
                 }
             }
+        }
+    }
+}
+
+struct InputEventSink : public RE::BSTEventSink<RE::InputEvent*> {
+    RE::BSEventNotifyControl ProcessEvent(RE::InputEvent* const* eventPtr, RE::BSTEventSource<RE::InputEvent*>*) {
+        if (!eventPtr) return RE::BSEventNotifyControl::kContinue;
+        auto* event = *eventPtr;
+        if (!event) return RE::BSEventNotifyControl::kContinue;
+        if (event->GetEventType() == RE::INPUT_EVENT_TYPE::kButton) {
+            auto* buttonEvent = event->AsButtonEvent();
+            auto  dxScanCode  = buttonEvent->GetIDCode();
+            if (dxScanCode == wheelerToggleKey) {
+                auto now     = std::chrono::steady_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastWheelerToggleTime).count();
+                if (elapsed < WHEELER_TOGGLE_TIME.count()) return RE::BSEventNotifyControl::kContinue;
+                else lastWheelerToggleTime = now;
+                // std::thread([]() { UpdateAllPlayerForgottenMagicSpellNamesWithXP(); }).detach();
+                // std::thread([]() { FindAllForgottenMagicSpells(); }).detach();
+            }
+        }
+        return RE::BSEventNotifyControl::kContinue;
+    }
+};
+
+struct OnActorLocationChangeEventSink : public RE::BSTEventSink<RE::TESActorLocationChangeEvent> {
+    RE::BSEventNotifyControl ProcessEvent(const RE::TESActorLocationChangeEvent* event, RE::BSTEventSource<RE::TESActorLocationChangeEvent>*) override {
+        // if (!_spellsLoaded.exchange(true)) std::thread([]() { FindAllForgottenMagicSpells(); }).detach();
+        return RE::BSEventNotifyControl::kContinue;
+    }
+};
+
+struct MagicEffectApplyEvent : public RE::BSTEventSink<RE::TESMagicEffectApplyEvent> {
+    RE::BSEventNotifyControl ProcessEvent(const RE::TESMagicEffectApplyEvent* event, RE::BSTEventSource<RE::TESMagicEffectApplyEvent>* eventSource) override {
+        //
+        auto* form = RE::TESForm::LookupByID(event->magicEffect);
+        if (!form) return RE::BSEventNotifyControl::kContinue;
+
+        if (!forgottenMagicFile) return RE::BSEventNotifyControl::kContinue;
+        if (!forgottenMagicFile->IsFormInMod(event->magicEffect)) return RE::BSEventNotifyControl::kContinue;
+
+        // Ignore "Area"
+
+        Log("ID: {}", form->GetFormID());
+        Log("TYPE: {}", form->GetFormType());
+        Log("Magic effect: {}", form->GetName());
+
+        auto* asSpellEffect = form->As<RE::ActiveEffect>();
+        if (asSpellEffect) {
+            Log("YES, got an ActiveEffect!");
+            // Log("AsSpellEffect: {}", asSpellEffect->spell
+        } else {
+            Log("Not an ActiveEffect");
         }
 
         return RE::BSEventNotifyControl::kContinue;
     }
 };
 
-std::unique_ptr<EventSink> eventSink = nullptr;
+struct TESSpellCastEventSink : public RE::BSTEventSink<RE::TESSpellCastEvent> {
+    RE::BSEventNotifyControl ProcessEvent(const RE::TESSpellCastEvent* event, RE::BSTEventSource<RE::TESSpellCastEvent>* eventSource) override {
+        // if (!_spellsLoaded.exchange(true)) std::thread([]() { FindAllForgottenMagicSpells(); }).detach();
+
+        if (event->object) {
+            // event->object->GetName()
+            Log("Spell cast event object: {}", event->object->GetName());
+        }
+
+        return RE::BSEventNotifyControl::kContinue;
+    }
+};
+
+std::unique_ptr<InputEventSink>                 inputEventSink               = nullptr;
+std::unique_ptr<OnActorLocationChangeEventSink> actorLocationChangeEventSink = nullptr;
+std::unique_ptr<MagicEffectApplyEvent>          magicEffectApplyEvent        = nullptr;
+std::unique_ptr<TESSpellCastEventSink>          spellCastEventSink           = nullptr;
+
+SKSEPlugin_Entrypoint {
+    CSimpleIniA ini;
+    ini.SetUnicode();
+    if (ini.LoadFile(INI_FILENAME.data()) == SI_OK) {
+        wheelerToggleKey = ini.GetLongValue(INI_SECTION.data(), INI_KEY.data(), wheelerToggleKey);
+        Log("Wheeler toggle key: {}", wheelerToggleKey);
+    }
+}
 
 SKSEPlugin_OnDataLoaded {
     forgottenMagicFile = RE::TESDataHandler::GetSingleton()->LookupModByName(FORGOTTEN_MAGIC_ESP);
@@ -219,25 +175,18 @@ SKSEPlugin_OnDataLoaded {
         SKSE::log::error("Could not find {}", FORGOTTEN_MAGIC_ESP);
         return;
     }
+}
 
-    Log("Searching for Forgotten Magic spells...");
-    auto allSpells = RE::TESDataHandler::GetSingleton()->GetFormArray<RE::SpellItem>();
-    for (auto* item : allSpells) {
-        if (forgottenMagicFile->IsFormInMod(item->GetFormID())) {
-            auto spellName = item->fullName;
-            if (!spellName.empty()) {
-                auto spellIndex = getSpellIndexFromSpellName(spellName.c_str());
-                if (spellIndex) {
-                    // Log("Spell index: {}", *spellIndex);
-                    spellIndexToSpellForm[*spellIndex]         = item;
-                    spellIndexToOriginalSpellName[*spellIndex] = spellName;
-                    Log("Spell index: {}, original name: {}", *spellIndex, spellName.c_str());
-                }
-            }
-        }
-    }
-    Log("Found {} Forgotten Magic spells.", spellIndexToSpellForm.size());
+SKSEPlugin_OnInputLoaded {
+    inputEventSink = std::make_unique<InputEventSink>();
+    RE::BSInputDeviceManager::GetSingleton()->AddEventSink(inputEventSink.get());
 
-    eventSink = std::make_unique<EventSink>();
-    RE::ScriptEventSourceHolder::GetSingleton()->AddEventSink(eventSink.get());
+    // actorLocationChangeEventSink = std::make_unique<OnActorLocationChangeEventSink>();
+    // RE::ScriptEventSourceHolder::GetSingleton()->AddEventSink(actorLocationChangeEventSink.get());
+
+    magicEffectApplyEvent = std::make_unique<MagicEffectApplyEvent>();
+    RE::ScriptEventSourceHolder::GetSingleton()->AddEventSink(magicEffectApplyEvent.get());
+
+    spellCastEventSink = std::make_unique<TESSpellCastEventSink>();
+    RE::ScriptEventSourceHolder::GetSingleton()->AddEventSink(spellCastEventSink.get());
 }
