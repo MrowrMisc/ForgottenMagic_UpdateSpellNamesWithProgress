@@ -104,6 +104,15 @@ void LoadForgottenMagicSpellsData() {
     Log("Found {} out of {} Forgotten Magic spell books", found, spellInfosByIndex.size());
 }
 
+void ResetAllSpellsToTheirOriginalNames() {
+    for (const auto& [spell, spellInfo] : spellInfosBySpellItem) {
+        if (spell && spellInfo.spell) {
+            Log("Resetting spell name to original: {}", spellInfo.originalSpellName);
+            spell->SetFullName(spellInfo.originalSpellName.c_str());
+        }
+    }
+}
+
 class MagicEffectApplyEventSink : public RE::BSTEventSink<RE::TESMagicEffectApplyEvent> {
 private:
     // Mutex for protecting access to the spell queue and last use times
@@ -443,3 +452,6 @@ SKSEPlugin_OnDataLoaded {
         RE::ScriptEventSourceHolder::GetSingleton()->AddEventSink(MagicEffectApplyEventSink::instance());
     }
 }
+
+SKSEPlugin_OnPostLoadGame { ResetAllSpellsToTheirOriginalNames(); }
+SKSEPlugin_OnNewGame { ResetAllSpellsToTheirOriginalNames(); }
