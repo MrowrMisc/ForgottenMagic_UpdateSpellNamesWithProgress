@@ -1,16 +1,8 @@
 #include <SkyrimScripting/Plugin.h>
-// Do not import SimpleIni until after CommonLib/SkyrimScripting
-#include <SimpleIni.h>
 #include <collections.h>
 
-#include <atomic>
-
-using namespace std::literals;
-
-constexpr auto INI_FILENAME = "Data/SKSE/Plugins/ForgottenMagic_UpdateSpellsWithProgress.ini"sv;
-
-std::string        forgottenMagicFilename = "ForgottenMagic_Redone.esp";
-const RE::TESFile* forgottenMagicFile     = nullptr;
+// Do not import SimpleIni until after CommonLib/SkyrimScripting (anything including Windows.h)
+#include <SimpleIni.h>
 
 // ....
 // constexpr auto                        INI_SECTION           = "General"sv;
@@ -23,6 +15,13 @@ const RE::TESFile* forgottenMagicFile     = nullptr;
 // int                                   wheelerToggleKey      = 0x3A;  // Default: CAPS LOCK
 // std::chrono::steady_clock::time_point lastWheelerToggleTime = std::chrono::steady_clock::now();
 
+using namespace std::literals;
+
+constexpr auto INI_FILENAME = "Data/SKSE/Plugins/ForgottenMagic_UpdateSpellsWithProgress.ini"sv;
+
+std::string        forgottenMagicFilename = "ForgottenMagic_Redone.esp";
+const RE::TESFile* forgottenMagicFile     = nullptr;
+
 using SpellIndex = std::uint32_t;
 
 struct SpellInfo {
@@ -32,7 +31,8 @@ struct SpellInfo {
     std::string    grantingBookName;
 };
 
-collections_map<SpellIndex, SpellInfo> spellInfosByIndex;
+collections_map<SpellIndex, SpellInfo>      spellInfosByIndex;
+collections_map<RE::FormID, RE::SpellItem*> spellEffectsBySpellEffectFormID;
 
 void ParseIni() {
     CSimpleIniA ini;
@@ -78,6 +78,10 @@ void LoadForgottenMagicSpellsData() {
                         Log("Matched this spell book with spell index {}", spellIndex);
                         spellInfo.spell             = spell;
                         spellInfo.originalSpellName = spell->GetName();
+                        for (auto& effect : spell->effects) {
+                            spellEffectsBySpellEffectFormID.emplace(effect->baseEffect->GetFormID(), spell);
+                            Log("Saving spell effect {} for spell {}", effect->baseEffect->GetName(), spell->GetName());
+                        }
                         found++;
                         break;
                     }
@@ -88,11 +92,41 @@ void LoadForgottenMagicSpellsData() {
     Log("Found {} out of {} Forgotten Magic spell books", found, spellInfosByIndex.size());
 }
 
+class MagicEffectApplyEventSink : public RE::BSTEventSink<RE::TESMagicEffectApplyEvent> {
+    void RunThisAfterTheMagicEffectIsDoneBeingUsed() {
+        // ...
+        // THIS IS WHERE I WANNA DO THE THINGS
+    }
+
+public:
+    static MagicEffectApplyEventSink* instance() {
+        static MagicEffectApplyEventSink singleton;
+        return &singleton;
+    }
+
+    RE::BSEventNotifyControl ProcessEvent(const RE::TESMagicEffectApplyEvent* event, RE::BSTEventSource<RE::TESMagicEffectApplyEvent>* eventSource) override {
+        auto* form = RE::TESForm::LookupByID(event->magicEffect);
+        if (!form) return RE::BSEventNotifyControl::kContinue;
+        if (!forgottenMagicFile) return RE::BSEventNotifyControl::kContinue;
+        if (!forgottenMagicFile->IsFormInMod(event->magicEffect)) return RE::BSEventNotifyControl::kContinue;
+
+        auto it = spellEffectsBySpellEffectFormID.find(event->magicEffect);
+        if (it != spellEffectsBySpellEffectFormID.end()) {
+            auto* spell = it->second;
+            Log("!!!!!!!!!!!!!!!!!!!!! Found a Forgotten Magic spell effect: {} (spell: {})", form->GetName(), spell->GetName());
+            // HERE! I want to queue up the spell to be updated with progress!
+        }
+
+        return RE::BSEventNotifyControl::kContinue;
+    }
+};
+
 SKSEPlugin_Entrypoint { ParseIni(); }
 
 SKSEPlugin_OnDataLoaded {
     if (spellInfosByIndex.size() > 0) {
         LookupForgottenMagicPlugin();
         if (forgottenMagicFile) LoadForgottenMagicSpellsData();
+        RE::ScriptEventSourceHolder::GetSingleton()->AddEventSink(MagicEffectApplyEventSink::instance());
     }
 }

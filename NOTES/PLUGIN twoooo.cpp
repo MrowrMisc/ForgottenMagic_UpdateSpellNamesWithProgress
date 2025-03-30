@@ -114,7 +114,7 @@ struct OnActorLocationChangeEventSink : public RE::BSTEventSink<RE::TESActorLoca
     }
 };
 
-struct MagicEffectApplyEvent : public RE::BSTEventSink<RE::TESMagicEffectApplyEvent> {
+struct MagicEffectApplyEventSink : public RE::BSTEventSink<RE::TESMagicEffectApplyEvent> {
     RE::BSEventNotifyControl ProcessEvent(const RE::TESMagicEffectApplyEvent* event, RE::BSTEventSource<RE::TESMagicEffectApplyEvent>* eventSource) override {
         //
         auto* form = RE::TESForm::LookupByID(event->magicEffect);
@@ -156,7 +156,7 @@ struct TESSpellCastEventSink : public RE::BSTEventSink<RE::TESSpellCastEvent> {
 
 std::unique_ptr<InputEventSink>                 inputEventSink               = nullptr;
 std::unique_ptr<OnActorLocationChangeEventSink> actorLocationChangeEventSink = nullptr;
-std::unique_ptr<MagicEffectApplyEvent>          magicEffectApplyEvent        = nullptr;
+std::unique_ptr<MagicEffectApplyEventSink>      magicEffectApplyEvent        = nullptr;
 std::unique_ptr<TESSpellCastEventSink>          spellCastEventSink           = nullptr;
 
 SKSEPlugin_Entrypoint {
@@ -184,7 +184,7 @@ SKSEPlugin_OnInputLoaded {
     // actorLocationChangeEventSink = std::make_unique<OnActorLocationChangeEventSink>();
     // RE::ScriptEventSourceHolder::GetSingleton()->AddEventSink(actorLocationChangeEventSink.get());
 
-    magicEffectApplyEvent = std::make_unique<MagicEffectApplyEvent>();
+    magicEffectApplyEvent = std::make_unique<MagicEffectApplyEventSink>();
     RE::ScriptEventSourceHolder::GetSingleton()->AddEventSink(magicEffectApplyEvent.get());
 
     spellCastEventSink = std::make_unique<TESSpellCastEventSink>();
