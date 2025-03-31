@@ -22,11 +22,12 @@ struct SpellInfo {
     std::string    grantingBookName;
 };
 
-constexpr auto INI_FILENAME                 = "Data/SKSE/Plugins/ForgottenMagic_UpdateSpellsWithProgress.ini"sv;
-constexpr auto MCM_QUEST_EDITOR_ID          = "vMCM"sv;
-constexpr auto MCM_SCRIPT                   = "vMCMscript"sv;
-constexpr auto PAPYRUS_XP_TRACKER_ARRAY     = "fSPXP"sv;
-constexpr auto PAPYRUS_XP_REQUIREMENT_ARRAY = "fXPreq"sv;
+constexpr auto INI_FILENAME                   = "Data/SKSE/Plugins/ForgottenMagic_UpdateSpellsWithProgress.ini"sv;
+constexpr auto MCM_QUEST_EDITOR_ID            = "vMCM"sv;
+constexpr auto MCM_SCRIPT                     = "vMCMscript"sv;
+constexpr auto PAPYRUS_XP_TRACKER_ARRAY       = "fSPXP"sv;
+constexpr auto PAPYRUS_XP_REQUIREMENT_ARRAY   = "fXPreq"sv;
+constexpr auto PAPYRUS_POINTS_AVAILABLE_ARRAY = "iPoints"sv;
 
 std::string        forgottenMagicFilename = "ForgottenMagic_Redone.esp";
 const RE::TESFile* forgottenMagicFile     = nullptr;
@@ -176,6 +177,11 @@ public:
                     Log("fXPreq property not found!");
                     break;
                 }
+                auto* availablePointsProperty = script->GetProperty(PAPYRUS_POINTS_AVAILABLE_ARRAY);
+                if (!availablePointsProperty) {
+                    Log("iPoints property not found!");
+                    break;
+                }
 
                 // And each property should be an array
                 if (!xpBySpellIdProperty->IsArray()) {
@@ -186,10 +192,15 @@ public:
                     Log("fXPreq property is not an array!");
                     break;
                 }
+                if (!availablePointsProperty->IsArray()) {
+                    Log("iPoints property is not an array!");
+                    break;
+                }
 
                 // Get the arrays
                 auto xpBySpellIdArray     = xpBySpellIdProperty->GetArray();
                 auto xpReqsBySpellIdArray = xpReqProperty->GetArray();
+                auto availablePointsArray = availablePointsProperty->GetArray();
 
                 for (const auto& spell : spells) {
                     auto&      spellInfo  = spellInfosBySpellItem[spell];
@@ -204,10 +215,15 @@ public:
                         Log("XP req array size is smaller than spell index!");
                         break;
                     }
+                    if (availablePointsArray->size() <= spellIndex) {
+                        Log("Available points array size is smaller than spell index!");
+                        break;
+                    }
 
                     // Get the variable at the right spell index
                     auto currentXpVariable = (*xpBySpellIdArray)[spellIndex];
                     auto xpReqVariable     = (*xpReqsBySpellIdArray)[spellIndex];
+                    auto availablePoints   = (*availablePointsArray)[spellIndex];
 
                     // Both need to be floats
                     if (!currentXpVariable.IsFloat()) {
@@ -216,6 +232,12 @@ public:
                     }
                     if (!xpReqVariable.IsFloat()) {
                         Log("XP req variable is not a float!");
+                        break;
+                    }
+
+                    // And the available points should be an int
+                    if (!availablePoints.IsInt()) {
+                        Log("Available points variable is not an int!");
                         break;
                     }
 
@@ -231,6 +253,9 @@ public:
                         break;
                     }
 
+                    // And get the int for the available points
+                    auto availablePointsInt = availablePoints.GetUInt();
+
                     // Sweet! Now we can calculate the progress:
                     auto progress = (currentXp / xpReq) * 100;
                     Log("Progress: {} ({} / {})", progress, currentXp, xpReq);
@@ -244,15 +269,18 @@ public:
                     auto originalName = spellInfo.originalSpellName;
                     if (originalName.empty()) break;
 
+                    std::string availablePointsIndicator;
+                    availablePointsIndicator = std::string(availablePointsInt, '*');
+
                     // If it's zero, then set the name back to the original name
                     if (progressInt == 0) {
-                        spell->SetFullName(originalName.c_str());
-                        Log("Setting name back to original for spell: {}", originalName);
+                        spell->SetFullName(std::format("{}{}", originalName, availablePointsIndicator).c_str());
+                        Log("Setting name back to original for spell: {}", spell->GetFullName());
                     } else {
                         // Otherwise, set the name to the original name + progress
                         // Make a new name which is the original name + progress, like
                         // "<original name> (<progress>%)"
-                        std::string newName = originalName + " (" + std::to_string(progressInt) + "%)";
+                        auto newName = std::format("{} ({}%){}", originalName, progressInt, availablePointsIndicator);
                         spell->SetFullName(newName.c_str());
                         Log("Setting new name for spell: {}", newName);
                     }
