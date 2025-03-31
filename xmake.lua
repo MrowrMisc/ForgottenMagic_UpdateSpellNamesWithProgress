@@ -26,7 +26,7 @@ add_requires("SkyrimScripting.Plugin", { configs = { commonlib = get_config("com
     
 skse_plugin({
     name = "Forgotten Magic - Update Spell Names with Progress",
-    version = "0.0.1",
+    version = "0.0.2",
     author = "Mrowr Purr",
     email = "mrowr.purr@gmail.com",
     packages = {"SkyrimScripting.Plugin", "unordered_dense", "collections", "simpleini"},
