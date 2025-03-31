@@ -105,7 +105,6 @@ void LoadForgottenMagicSpellsData() {
 }
 
 class MagicEffectApplyEventSink : public RE::BSTEventSink<RE::TESMagicEffectApplyEvent> {
-private:
     // Mutex for protecting access to the spell queue and last use times
     // Ensures thread-safe operations on the collection of spells pending processing
     std::mutex queue_mutex;
